@@ -49,7 +49,14 @@ cp .env.example .env      # set GOOGLE_CLOUD_PROJECT, TRUTHFULNESS_GCS_BUCKET
 
 # 5. Reproducible evaluation (held-out split, fixed seed).
 #    First run launches a Vertex tuning job (~1-3 h); subsequent runs reuse it.
+#    --sample N evaluates on a fixed random N-row subset of the held-out test
+#    set (cheap end-to-end check); it does NOT affect tuning, which always
+#    uses the full training split.
 python -m truthfulness.evaluate --data data.csv --sample 200
+
+# 6. Final numbers: drop --sample to evaluate on the full held-out test set.
+#    Cached rows from step 5 are not re-billed.
+python -m truthfulness.evaluate --data data.csv
 ```
 
 After the tuning job completes the script prints the tuned-model endpoint.

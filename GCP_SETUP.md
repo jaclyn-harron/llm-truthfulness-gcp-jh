@@ -58,10 +58,17 @@ cp /path/to/data.csv .
 # Quick smoke test of Vertex access (~10 statements, zero-shot only):
 python -m truthfulness.evaluate --data data.csv --sample 10 --skip-finetune || true
 
-# Full run. The first run launches a Vertex supervised tuning job on
+# First real run. This launches a Vertex supervised tuning job on
 # gemini-2.5-flash and WAITS for it (1-3 h). Progress: Console -> Vertex AI
-# -> Tuning. Then it evaluates both predictors on the same held-out split.
+# -> Tuning. Tuning always uses the FULL training split; --sample 200 only
+# limits the evaluation to a fixed random 200-row subset of the held-out
+# test set, as a cheap end-to-end check.
 python -m truthfulness.evaluate --data data.csv --sample 200
+
+# Final evaluation: drop --sample to score both predictors on the full
+# held-out test set (~1,440 rows). These are the numbers to report. The
+# on-disk cache (.cache/) means already-scored rows are not re-billed.
+python -m truthfulness.evaluate --data data.csv
 ```
 
 When tuning finishes the script prints the tuned endpoint, e.g.
