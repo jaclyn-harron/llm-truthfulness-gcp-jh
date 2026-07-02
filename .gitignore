@@ -1,0 +1,47 @@
+# ---- Challenge bulk artifacts (never commit) ----
+data.csv
+*.zip
+Data Science Challenge*.pdf
+internal/
+internal_ds.zip
+
+# ---- Secrets ----
+.env
+*.key
+*-key.json
+gcp-key.json
+claude-gcp-key.json
+service-account*.json
+
+# ---- Generated artifacts / caches ----
+.cache/
+artifacts/
+runs/
+*.jsonl
+fine_tune_*.json
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ---- Terraform ----
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# ---- OS / editor ----
+.DS_Store
+.idea/
+.vscode/

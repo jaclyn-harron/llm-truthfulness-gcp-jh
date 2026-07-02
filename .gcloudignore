@@ -1,0 +1,24 @@
+# Upload rules for `gcloud builds submit`. Without this file gcloud falls back
+# to .gitignore, which would exclude data.csv — but the image needs it (the MCP
+# dataset_sample tool). Keep secrets and caches out; let the dataset through.
+.git/
+.gitignore
+.env
+*.key
+*-key.json
+service-account*.json
+.cache/
+artifacts/
+runs/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.DS_Store

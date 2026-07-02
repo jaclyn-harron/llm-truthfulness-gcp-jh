@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored) or pass via TF_VAR_* env vars.
+project_id       = "my-project-id"
+region           = "us-central1"
+image            = "us-central1-docker.pkg.dev/my-project-id/truthfulness/app:latest"
+fine_tuned_model = "projects/123456789/locations/us-central1/endpoints/987654321"
+api_auth_token   = "generate-with: openssl rand -hex 24"

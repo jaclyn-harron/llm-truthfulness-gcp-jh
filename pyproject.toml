@@ -1,0 +1,45 @@
+[project]
+name = "truthfulness"
+version = "0.2.0"
+description = "LLM-based truthfulness classification on Vertex AI: zero-shot and fine-tuned Gemini predictors with a faithful explainer."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "Jaclyn Harron" }]
+dependencies = [
+    "google-genai>=2.0",
+    "google-cloud-storage>=2.16",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scikit-learn>=1.3",
+    "python-dotenv>=1.0",
+    "tenacity>=8.2",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+# Part 2 multi-agent service (A2A agents + MCP tool server).
+service = [
+    "a2a-sdk==0.2.16",
+    "mcp==1.28.0",
+    "uvicorn==0.49.0",
+    "starlette==1.3.1",
+    "fastapi==0.137.1",
+    "httpx==0.28.1",
+    "pydantic>=2.7",
+]
+
+[project.scripts]
+truthfulness-evaluate = "truthfulness.evaluate:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

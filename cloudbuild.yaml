@@ -1,0 +1,11 @@
+# Cloud Build config: builds the single service image from deploy/Dockerfile.
+# Invoked by `make push` (see deploy/Makefile) with _IMAGE substituted.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "-f", "deploy/Dockerfile", "."]
+images:
+  - "${_IMAGE}"
+substitutions:
+  _IMAGE: ""
+options:
+  logging: CLOUD_LOGGING_ONLY

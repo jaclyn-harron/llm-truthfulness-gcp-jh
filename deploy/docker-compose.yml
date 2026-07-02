@@ -1,0 +1,79 @@
+# Local end-to-end run of the whole agent network against Vertex AI.
+# Auth is your local ADC (gcloud auth application-default login), mounted
+# read-only into every container.
+#
+#   cd deploy && GOOGLE_CLOUD_PROJECT=my-project \
+#     TRUTHFULNESS_FINE_TUNED_MODEL=projects/.../endpoints/... \
+#     docker compose up --build
+# Then:
+#   curl -X POST http://localhost:8080/verify -H "Authorization: Bearer localsecret" \
+#     -H "Content-Type: application/json" -d @batch.json
+x-vertex-env: &vertex-env
+  GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:?set GOOGLE_CLOUD_PROJECT}
+  GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
+  GOOGLE_APPLICATION_CREDENTIALS: /adc/application_default_credentials.json
+  TRUTHFULNESS_FINE_TUNED_MODEL: ${TRUTHFULNESS_FINE_TUNED_MODEL:-}
+
+x-adc-volume: &adc-volume
+  - ${ADC_FILE:-~/.config/gcloud/application_default_credentials.json}:/adc/application_default_credentials.json:ro
+
+services:
+  mcp:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    environment:
+      <<: *vertex-env
+      ROLE: mcp
+      PORT: "8085"
+      DATA_PATH: data.csv
+    volumes: *adc-volume
+    ports: ["8085:8085"]
+
+  zero_shot:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    environment:
+      <<: *vertex-env
+      ROLE: zero_shot
+      PORT: "8081"
+      PUBLIC_URL: http://zero_shot:8081
+      MCP_URL: http://mcp:8085/mcp
+    volumes: *adc-volume
+    depends_on: [mcp]
+
+  fine_tuned:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    environment:
+      <<: *vertex-env
+      ROLE: fine_tuned
+      PORT: "8082"
+      PUBLIC_URL: http://fine_tuned:8082
+      MCP_URL: http://mcp:8085/mcp
+    volumes: *adc-volume
+    depends_on: [mcp]
+
+  explainer:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    environment:
+      <<: *vertex-env
+      ROLE: explainer
+      PORT: "8083"
+      PUBLIC_URL: http://explainer:8083
+      MCP_URL: http://mcp:8085/mcp
+    volumes: *adc-volume
+    depends_on: [mcp]
+
+  orchestrator:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    environment:
+      <<: *vertex-env
+      ROLE: orchestrator
+      PORT: "8080"
+      PUBLIC_URL: http://localhost:8080
+      MCP_URL: http://mcp:8085/mcp
+      ZERO_SHOT_URL: http://zero_shot:8081
+      FINE_TUNED_URL: http://fine_tuned:8082
+      EXPLAINER_URL: http://explainer:8083
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN:-localsecret}
+      RECONCILE: fine_tuned
+    volumes: *adc-volume
+    ports: ["8080:8080"]
+    depends_on: [mcp, zero_shot, fine_tuned, explainer]
