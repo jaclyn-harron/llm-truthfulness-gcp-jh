@@ -16,7 +16,7 @@ Throughout, replace:
 
 ```bash
 gcloud auth login
-gcloud config set project PROJECT_ID
+gcloud config set project x-wppai-dataspine-choreo-dev
 
 # Enable required APIs
 gcloud services enable \
@@ -29,10 +29,10 @@ gcloud services enable \
 
 # Local credentials for the code (ADC). No API keys are used anywhere.
 gcloud auth application-default login
-gcloud auth application-default set-quota-project PROJECT_ID
+gcloud auth application-default set-quota-project x-wppai-dataspine-choreo-dev
 
 # Staging bucket for tuning data (same region as tuning/serving)
-gcloud storage buckets create gs://BUCKET --location=REGION \
+gcloud storage buckets create gs://jaclyn-agent-challenge-bucket --location=us-central1 \
   --uniform-bucket-level-access
 ```
 
@@ -43,25 +43,25 @@ Your user needs these roles for Part 1 (Owners already have them):
 
 ```bash
 git clone git@github.com:YOUR_ORG/llm-truthfulness-gcp.git && cd llm-truthfulness-gcp
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt && pip install -e .
 
 cp .env.example .env
 # edit .env:
-#   GOOGLE_CLOUD_PROJECT=PROJECT_ID
-#   GOOGLE_CLOUD_LOCATION=REGION
-#   TRUTHFULNESS_GCS_BUCKET=BUCKET
+#   GOOGLE_CLOUD_PROJECT=x-wppai-dataspine-choreo-dev
+#   GOOGLE_CLOUD_LOCATION=us-central1
+#   TRUTHFULNESS_GCS_BUCKET=jaclyn-agent-challenge-bucket
 
 # Place the challenge dataset at the repo root:
 cp /path/to/data.csv .
 
 # Quick smoke test of Vertex access (~10 statements, zero-shot only):
-python -m truthfulness.evaluate --data data.csv --sample 10 --skip-finetune || true
+python3 -m truthfulness.evaluate --data data.csv --sample 10 --skip-finetune || true
 
 # Full run. The first run launches a Vertex supervised tuning job on
 # gemini-2.5-flash and WAITS for it (1-3 h). Progress: Console -> Vertex AI
 # -> Tuning. Then it evaluates both predictors on the same held-out split.
-python -m truthfulness.evaluate --data data.csv --sample 200
+python3 -m truthfulness.evaluate --data data.csv --sample 200
 ```
 
 When tuning finishes the script prints the tuned endpoint, e.g.
@@ -73,15 +73,15 @@ echo 'TRUTHFULNESS_FINE_TUNED_MODEL=projects/…/endpoints/…' >> .env
 ```
 
 (You can also find it later: Console → Vertex AI → Tuning → your job →
-tuned model endpoint, or `gcloud ai endpoints list --region=REGION`.)
+tuned model endpoint, or `gcloud ai endpoints list --region=us-central1`.)
 
 ## 2. Part 2 — deploy the agent service to Cloud Run
 
 ```bash
 cd deploy
-export TF_VAR_project_id=PROJECT_ID
-export TF_VAR_region=REGION
-export TF_VAR_fine_tuned_model=projects/…/locations/REGION/endpoints/…   # from step 1
+export TF_VAR_project_id=x-wppai-dataspine-choreo-dev
+export TF_VAR_region=us-central1
+export TF_VAR_fine_tuned_model=projects/…/locations/us-central1/endpoints/…   # from step 1
 export TF_VAR_api_auth_token=$(openssl rand -hex 24)
 echo "API token: $TF_VAR_api_auth_token"    # save this; clients need it
 
@@ -131,8 +131,8 @@ or run `python scripts/mcp_demo.py <mcp_url>`.
 cd deploy && make destroy
 
 # Delete the tuned model endpoint too, if finished with it:
-gcloud ai endpoints list --region=REGION
-gcloud ai endpoints delete ENDPOINT_ID --region=REGION
+gcloud ai endpoints list --region=us-central1
+gcloud ai endpoints delete ENDPOINT_ID --region=us-central1
 
 # Rotate the bearer token: re-export TF_VAR_api_auth_token and `terraform apply`.
 ```
