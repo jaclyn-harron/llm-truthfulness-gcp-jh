@@ -81,8 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Model: {zs.model}")
     zs_out = zs.predict(test_points, labels=test_labels)
     print(json.dumps(zs_out.metrics, indent=2))
-    print("Z-S Predictions:", zs_out.predictions[:10])
-    print("Z-S Labels:", test_labels[:10])
+
 
     # ---- Fine-tuned (Vertex AI supervised tuning) ----
     ft = FineTunedPredictor(cfg)
@@ -108,8 +107,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Model: {ft.model}")
     ft_out = ft.predict(test_points, labels=test_labels)
     print(json.dumps(ft_out.metrics, indent=2))
-    print("FT Predictions:", ft_out.predictions[:10])
-    print("FT Labels:", test_labels[:10])
+
 
     # ---- Side by side ----
     _print_header("Side-by-side comparison (same held-out split)")

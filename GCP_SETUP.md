@@ -44,7 +44,7 @@ Your user needs these roles for Part 1 (Owners already have them):
 ```bash
 git clone git@github.com:YOUR_ORG/llm-truthfulness-gcp.git && cd llm-truthfulness-gcp
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt && pip install -e .
+pip3 install -r requirements.txt && pip3 install -e .
 
 cp .env.example .env
 # edit .env:
@@ -61,7 +61,7 @@ python3 -m truthfulness.evaluate --data data.csv --sample 10 --skip-finetune || 
 # Full run. The first run launches a Vertex supervised tuning job on
 # gemini-2.5-flash and WAITS for it (1-3 h). Progress: Console -> Vertex AI
 # -> Tuning. Then it evaluates both predictors on the same held-out split.
-python3 -m truthfulness.evaluate --data data.csv --sample 200
+python3 -m truthfulness.evaluate --data data.csv
 ```
 
 When tuning finishes the script prints the tuned endpoint, e.g.
@@ -142,7 +142,7 @@ gcloud ai endpoints delete ENDPOINT_ID --region=us-central1
 - **403 / PermissionDenied on Vertex calls** — ADC not set up
   (`gcloud auth application-default login`) or missing `roles/aiplatform.user`.
 - **Tuning job rejects the base model** — the tunable set changes over time;
-  as of July 2026 use `gemini-2.5-flash`, `gemini-2.5-flash-lite` or
+  as of July 2024 use `gemini-2.5-flash`, `gemini-2.5-flash-lite` or
   `gemini-2.5-pro` via `TRUTHFULNESS_FT_BASE_MODEL`. Gemini 2.5 retires
   Oct 16 2026; re-tune on the then-current tunable base afterwards.
 - **Tuned endpoint NotFound from the service** — `TF_VAR_fine_tuned_model`
