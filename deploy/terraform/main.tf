@@ -41,36 +41,37 @@ resource "google_artifact_registry_repository" "repo" {
 }
 
 # ---- Secret (bearer token for the public endpoint) ----
-resource "google_secret_manager_secret" "auth" {
+data "google_secret_manager_secret" "auth" {
   secret_id = "truthfulness-api-auth-token"
-  replication {
-    auto {}
-  }
-  depends_on = [google_project_service.apis]
 }
-resource "google_secret_manager_secret_version" "auth" {
-  secret      = google_secret_manager_secret.auth.id
-  secret_data = var.api_auth_token
-}
+
+
 
 # ---- Runtime service account ----
-resource "google_service_account" "runtime" {
-  account_id   = "cloud-run-sa"
-  display_name = "Truthfulness Cloud Run runtime"
+data "google_service_account" "runtime" {
+  account_id = "cloud-run-sa"
 }
 
-# Vertex AI access for every model call (zero-shot, tuned endpoint, explainer).
-resource "google_project_iam_member" "vertex_user" {
-  project = var.project_id
-  role    = "roles/aiplatform.user"
-  member  = "serviceAccount:${google_service_account.runtime.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "auth_access" {
-  secret_id = google_secret_manager_secret.auth.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.runtime.email}"
-}
+# Commented out as these require Project IAM Admin / Owner level permissions to update.
+# The user's role (Editor) cannot modify IAM, but these bindings are already configured in GCP.
+# # Vertex AI access for every model call (zero-shot, tuned endpoint, explainer).
+# resource "google_project_iam_member" "vertex_user" {
+#   project = var.project_id
+#   role    = "roles/aiplatform.user"
+#   member  = "serviceAccount:${data.google_service_account.runtime.email}"
+# }
+# 
+# resource "google_secret_manager_secret_iam_member" "auth_access" {
+#   secret_id = data.google_secret_manager_secret.auth.id
+#   role      = "roles/secretmanager.secretAccessor"
+#   member    = "serviceAccount:${data.google_service_account.runtime.email}"
+# }
+# 
+# resource "google_secret_manager_secret_iam_member" "user_auth_access" {
+#   secret_id = data.google_secret_manager_secret.auth.id
+#   role      = "roles/secretmanager.secretAccessor"
+#   member    = "user:jaclyn.harron@satalia.com"
+# }
 
 locals {
   # Common Cloud Run scaling/cost knobs reused by every service.
@@ -85,7 +86,7 @@ resource "google_cloud_run_v2_service" "mcp" {
   deletion_protection = false
   ingress             = "INGRESS_TRAFFIC_ALL"
   template {
-    service_account = google_service_account.runtime.email
+    service_account = data.google_service_account.runtime.email
     scaling {
       min_instance_count = local.scaling_min
       max_instance_count = local.scaling_max
@@ -116,7 +117,7 @@ resource "google_cloud_run_v2_service" "mcp" {
       }
     }
   }
-  depends_on = [google_project_service.apis, google_project_iam_member.vertex_user]
+  depends_on = [google_project_service.apis]
 }
 
 # ---- Predictor / explainer agents (consume MCP tools) ----
@@ -131,7 +132,7 @@ resource "google_cloud_run_v2_service" "agent" {
   deletion_protection = false
   ingress             = "INGRESS_TRAFFIC_ALL"
   template {
-    service_account = google_service_account.runtime.email
+    service_account = data.google_service_account.runtime.email
     scaling {
       min_instance_count = local.scaling_min
       max_instance_count = local.scaling_max
@@ -172,7 +173,7 @@ resource "google_cloud_run_v2_service" "orchestrator" {
   deletion_protection = false
   ingress             = "INGRESS_TRAFFIC_ALL"
   template {
-    service_account = google_service_account.runtime.email
+    service_account = data.google_service_account.runtime.email
     scaling {
       min_instance_count = local.scaling_min
       max_instance_count = local.scaling_max
@@ -218,7 +219,7 @@ resource "google_cloud_run_v2_service" "orchestrator" {
         name = "API_AUTH_TOKEN"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.auth.secret_id
+            secret  = data.google_secret_manager_secret.auth.secret_id
             version = "latest"
           }
         }
@@ -228,7 +229,7 @@ resource "google_cloud_run_v2_service" "orchestrator" {
       }
     }
   }
-  depends_on = [google_cloud_run_v2_service.agent, google_secret_manager_secret_version.auth]
+  depends_on = [google_cloud_run_v2_service.agent, data.google_secret_manager_secret.auth]
 }
 
 # ---- Browser demo UI (optional; proxies to the orchestrator) ----
@@ -242,7 +243,7 @@ resource "google_cloud_run_v2_service" "demo" {
   deletion_protection = false
   ingress             = "INGRESS_TRAFFIC_ALL"
   template {
-    service_account = google_service_account.runtime.email
+    service_account = data.google_service_account.runtime.email
     scaling {
       min_instance_count = local.scaling_min
       max_instance_count = local.scaling_max
@@ -265,7 +266,7 @@ resource "google_cloud_run_v2_service" "demo" {
         name = "API_AUTH_TOKEN"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.auth.secret_id
+            secret  = data.google_secret_manager_secret.auth.secret_id
             version = "latest"
           }
         }
@@ -282,16 +283,18 @@ resource "google_cloud_run_v2_service" "demo" {
 # token at the application layer; internal agents/MCP are reachable by URL only.
 # (Hardening option: require IAM auth on the internal services and have the
 # orchestrator attach a Google ID token — see deploy README.)
-resource "google_cloud_run_v2_service_iam_member" "public" {
-  for_each = toset(concat([
-    google_cloud_run_v2_service.mcp.name,
-    google_cloud_run_v2_service.agent["ts-zero-shot"].name,
-    google_cloud_run_v2_service.agent["ts-fine-tuned"].name,
-    google_cloud_run_v2_service.agent["ts-explainer"].name,
-    google_cloud_run_v2_service.orchestrator.name,
-  ], var.enable_demo ? [google_cloud_run_v2_service.demo[0].name] : []))
-  name     = each.value
-  location = var.region
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
+# Commented out as the user does not have permission to modify Cloud Run service IAM policies (run.services.setIamPolicy).
+# Since you have project-wide permissions (Editor), you can still invoke and access the services natively.
+# resource "google_cloud_run_v2_service_iam_member" "public" {
+#   for_each = toset(concat([
+#     google_cloud_run_v2_service.mcp.name,
+#     google_cloud_run_v2_service.agent["ts-zero-shot"].name,
+#     google_cloud_run_v2_service.agent["ts-fine-tuned"].name,
+#     google_cloud_run_v2_service.agent["ts-explainer"].name,
+#     google_cloud_run_v2_service.orchestrator.name,
+#   ], var.enable_demo ? [google_cloud_run_v2_service.demo[0].name] : []))
+#   name     = each.value
+#   location = var.region
+#   role     = "roles/run.invoker"
+#   member   = "allUsers"
+# }

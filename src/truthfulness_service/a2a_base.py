@@ -93,11 +93,34 @@ def serve(card: AgentCard, executor: AgentExecutor, *, host: str, port: int) -> 
 
 # --------------------------- client side (delegation) ------------------------
 
+import google.auth
+import google.auth.transport.requests
+from google.oauth2 import id_token
+from urllib.parse import urlparse
+
+def fetch_id_token(url: str) -> str:
+    """Fetch a Google ID token from the metadata server or ADC for the given URL's audience."""
+    try:
+        parsed = urlparse(url)
+        audience = f"{parsed.scheme}://{parsed.netloc}"
+        credentials, _ = google.auth.default()
+        auth_req = google.auth.transport.requests.Request()
+        return id_token.fetch_id_token(auth_req, audience)
+    except Exception as e:
+        logger.debug("Could not fetch ID token for audience of %s: %s", url, e)
+        return ""
+
+
 async def discover_and_call(base_url: str, payload: dict, *, timeout: float = 120.0) -> dict:
     """Discover an agent via its card, then delegate a task over A2A and return
     the parsed JSON result. This is genuine A2A: we fetch the agent card and
     invoke the agent as a first-class participant, not a bare HTTP call."""
-    async with httpx.AsyncClient(timeout=timeout) as hx:
+    headers = {}
+    tok = fetch_id_token(base_url)
+    if tok:
+        headers["Authorization"] = f"Bearer {tok}"
+
+    async with httpx.AsyncClient(timeout=timeout, headers=headers) as hx:
         # Genuine A2A capability discovery: fetch the peer's agent card.
         resolver = A2ACardResolver(httpx_client=hx, base_url=base_url)
         card = await resolver.get_agent_card()
